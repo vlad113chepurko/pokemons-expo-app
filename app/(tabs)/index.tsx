@@ -1,98 +1,104 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  Pressable,
+  ActivityIndicator,
+} from "react-native";
+import type { PokemonCardData } from "@/types/pokemon";
+import { fetchPokemonList, fetchPokemonCardData } from "../../services/pokeapi";
+import { PokemonCard } from "../../components/PokemonCard";
+import { SearchBar } from "../../components/SearchBar";
+import { useFavorites } from "../../store/favorites";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+export default function ListScreen() {
+  const {
+    favorites,
+    loading: favLoading,
+    isFavorite,
+    toggleFavorite,
+  } = useFavorites();
 
-export default function HomeScreen() {
+  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<PokemonCardData[]>([]);
+  const [query, setQuery] = useState("");
+  const [onlyFavorites, setOnlyFavorites] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const list = await fetchPokemonList(60, 0);
+        const cards = await Promise.all(
+          list.map((x) => fetchPokemonCardData(x.name)),
+        );
+        if (!cancelled) setItems(cards);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let data = items;
+
+    if (q) data = data.filter((p) => p.name.toLowerCase().includes(q));
+
+    if (onlyFavorites) {
+      const favSet = new Set(favorites.map((f) => f.name));
+      data = data.filter((p) => favSet.has(p.name));
+    }
+
+    return data;
+  }, [items, query, onlyFavorites, favorites]);
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <View style={{ flex: 1, padding: 16, gap: 12, backgroundColor: "#000" }}>
+      <Text style={{ color: "#fff", fontSize: 22, fontWeight: "700" }}>
+        Pokemon list
+      </Text>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      <SearchBar value={query} onChange={setQuery} />
+
+      <Pressable
+        onPress={() => setOnlyFavorites((v) => !v)}
+        style={{
+          padding: 10,
+          borderRadius: 12,
+          backgroundColor: onlyFavorites ? "#0066ff" : "#1b1b1b",
+          alignSelf: "flex-start",
+        }}
+      >
+        <Text style={{ color: "#fff" }}>
+          {onlyFavorites ? "Showing: favorites" : "Filter: Only favorites"}
+        </Text>
+      </Pressable>
+
+      {(loading || favLoading) && (
+        <View style={{ paddingVertical: 24 }}>
+          <ActivityIndicator />
+        </View>
+      )}
+
+      <FlatList
+        data={filtered}
+        keyExtractor={(item) => item.name}
+        contentContainerStyle={{ gap: 10, paddingVertical: 6 }}
+        renderItem={({ item }) => (
+          <PokemonCard
+            pokemon={item}
+            isFavorite={isFavorite(item.name)}
+            onToggleFavorite={() => toggleFavorite(item)}
+          />
+        )}
+      />
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
