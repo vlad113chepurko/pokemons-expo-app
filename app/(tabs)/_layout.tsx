@@ -1,5 +1,5 @@
-import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Tabs } from "expo-router";
 
 export default function TabsLayout() {
   return (
@@ -54,7 +54,7 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="compare" 
+        name="compare"
         options={{
           title: "Compare",
           tabBarIcon: ({ color, size, focused }) => (
@@ -74,6 +74,20 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name={focused ? "time" : "time-outline"}
+              color={color}
+              size={size ?? 24}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="cart"
+        options={{
+          title: "Cart",
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "cart" : "cart-outline"}
               color={color}
               size={size ?? 24}
             />
